@@ -1,4 +1,4 @@
-import uuid
+import uuid6 as uuid
 import logging
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends
 from app.models.face_model import face_model_instance, FaceModel

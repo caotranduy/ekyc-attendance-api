@@ -1,6 +1,7 @@
 from typing import Optional
 from pydantic import BaseModel, Field
-import uuid
+import uuid6 as uuid
+
 
 class RegisterSuccessResponse(BaseModel):
     """Defines the successful registration response schema."""

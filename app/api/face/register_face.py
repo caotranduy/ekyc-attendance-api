@@ -26,8 +26,11 @@ async def register_face_endpoint(
 
     try:
         image_bytes = await file.read()
-        user_id = model.register_new_face(image_bytes=image_bytes)
-        return RegisterSuccessResponse(user_id=user_id)
+        registered_face = model.register_new_face(image_bytes=image_bytes)
+        if registered_face.success and not registered_face.face_id is None:
+            return RegisterSuccessResponse(user_id=registered_face.face_id)
+        else:
+            raise HTTPException(status_code=400, detail=registered_face.error_message)
     except ValueError as e:
         logging.warning(f"Registration validation error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
