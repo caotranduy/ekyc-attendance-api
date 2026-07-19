@@ -4,7 +4,7 @@ from fastapi import APIRouter, Response, status
 from pydantic import BaseModel, Field
 from typing import List, Dict
 
-from app.models.face_model import face_model_instance
+from app.service.face_model import face_model_instance
 from app.core import config
 
 router = APIRouter()

@@ -3,6 +3,13 @@ from fastapi import FastAPI, APIRouter
 from app.api import health
 from app.api.face.master_router import face_master_router
 from fastapi.middleware.cors import CORSMiddleware
+from app.db.session import Base, engine
+import app.models.user  # Register User model with declarative base
+import app.models.user_face  # Register UserFace model with declarative base
+
+# Create SQLite tables on startup
+Base.metadata.create_all(bind=engine)
+
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
