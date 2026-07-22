@@ -18,10 +18,12 @@ class RegistrationResult:
     Attributes:
         success (bool): Indicates if the operation completed successfully.
         face_id (Optional[uuid.UUID]): The generated UUID if successful, None otherwise.
+        cropped_jpeg_bytes (Optional[bytes]): Raw 4x6 JPEG cropped face image bytes.
         error_message (Optional[str]): Detailed error message if success is False.
     """
     success: bool
     face_id: Optional[uuid.UUID] = None
+    cropped_jpeg_bytes: Optional[bytes] = None
     error_message: Optional[str] = None
 
 class FaceModel:
@@ -48,12 +50,11 @@ class FaceModel:
             
             if self.cuda_available:
                 logging.info(f"CUDA is available. Using GPU")
-                # MÔ HÌNH GPU: Sử dụng CNN để phát hiện khuôn mặt chính xác và nhanh hơn trên GPU
-                # Lưu ý: Cần file model mmod_human_face_detector.dat từ dlib
+                # GPU accelarated
                 self.detector = dlib.cnn_face_detection_model_v1(config.CNN_DETECTOR_PATH)
             else:
                 logging.info("CUDA not available or dlib compiled without CUDA. Falling back to CPU.")
-                # MÔ HÌNH CPU: Sử dụng HOG + Linear SVM truyền thống
+                # CPU runtime
                 self.detector = dlib.get_frontal_face_detector()
 
             # Các mô hình này tự động chuyển hướng tính toán sang GPU nếu dlib.DLIB_USE_CUDA == True
@@ -116,21 +117,48 @@ class FaceModel:
         
         return face_encoding, img, face_rect   
 
+    def _crop_face_4x6_150percent(self, original_image: np.ndarray, face_rect: dlib.rectangle) -> bytes:
+        """Crops detected face at 150% (1.5x scale) size with a 4:6 portrait aspect ratio and returns JPEG bytes."""
+        img_h, img_w = original_image.shape[:2]
+        left, top, right, bottom = face_rect.left(), face_rect.top(), face_rect.right(), face_rect.bottom()
+
+        box_w = right - left
+        box_h = bottom - top
+        center_x = left + box_w / 2.0
+        center_y = top + box_h / 2.0
+
+        # Scale 150% (1.5x)
+        w_expanded = box_w * 1.5
+        h_expanded = box_h * 1.5
+
+        # Enforce 4:6 aspect ratio (width : height = 4 : 6 = 2 : 3)
+        target_h = max(h_expanded, w_expanded * (6.0 / 4.0))
+        target_w = target_h * (4.0 / 6.0)
+
+        crop_left = int(max(0, center_x - target_w / 2.0))
+        crop_top = int(max(0, center_y - target_h / 2.0))
+        crop_right = int(min(img_w, center_x + target_w / 2.0))
+        crop_bottom = int(min(img_h, center_y + target_h / 2.0))
+
+        cropped = original_image[crop_top:crop_bottom, crop_left:crop_right]
+        if cropped.size == 0:
+            cropped = original_image
+
+        success, encoded_img = cv2.imencode('.jpg', cropped, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+        if not success:
+            raise ValueError("Failed to encode 4x6 cropped face to JPEG.")
+        return encoded_img.tobytes()
+
     def register_new_face(self, image_bytes: bytes) -> RegistrationResult:
-        """Attempts to register a face and returns a structured success/fail result.
+        """Extracts 128D face vector, adds to FAISS, crops 4x6 face image, and returns bytes.
 
-        Args:
-            image_bytes (bytes): Raw byte stream of the target image.
-
-        Returns:
-            RegistrationResult: An object encapsulating the outcome (success/failure) 
-            and the corresponding generated UUID or error message.
+        FaceModel DOES NOT write files directly to disk; file saving is handled by Service Layer.
         """
         try:
-            # 1. Trích xuất đặc trưng (Có thể bắn ra ValueError nếu không có mặt hoặc có nhiều mặt)
+            # 1. Extract face vector
             face_encoding, original_image, face_rect = self._get_single_face_encoding(image_bytes)
             
-            # 2. Thao tác với FAISS
+            # 2. Add to FAISS index
             new_face_id = uuid.uuid7()
             vector = np.array([face_encoding], dtype=np.float32)
             
@@ -139,35 +167,56 @@ class FaceModel:
             self.uuid_mapping.append(new_face_id)
             self.uuid_to_index[new_face_id] = current_index
             
-            # 3. Lưu xuống đĩa cứng (Có thể bắn ra OSError/IOError)
+            # 3. Save FAISS index
             self._save_index_and_mapping()
-            logging.info(f"Successfully registered new face with ID: {new_face_id}")
+            logging.info(f"Successfully registered new face vector in FAISS with ID: {new_face_id}")
+
+            # 4. Perform 4x6 150% BBox cropping to raw JPEG bytes
+            cropped_bytes = self._crop_face_4x6_150percent(original_image, face_rect)
+
+            return RegistrationResult(
+                success=True,
+                face_id=new_face_id,
+                cropped_jpeg_bytes=cropped_bytes
+            )
 
         except ValueError as ve:
             logging.warning(f"Face validation failed: {ve}")
             return RegistrationResult(success=False, error_message=str(ve))
         except Exception as e:
             logging.error(f"System error during face registration: {e}")
-            # Có thể bổ sung logic xóa vector khỏi bộ nhớ FAISS tại đây nếu cần thiết
             return RegistrationResult(success=False, error_message="Internal system error during registration.")
 
-        # 4. Lưu ảnh crop (Tác vụ phụ, nếu lỗi cũng không đánh rớt toàn bộ tiến trình)
-        try:
-            top, right, bottom, left = face_rect.top(), face_rect.right(), face_rect.bottom(), face_rect.left()
-            padding = 20
-            
-            img_h, img_w = original_image.shape[:2]
-            crop_top, crop_bottom = max(0, top - padding), min(img_h, bottom + padding)
-            crop_left, crop_right = max(0, left - padding), min(img_w, right + padding)
-            
-            cropped_face = original_image[crop_top:crop_bottom, crop_left:crop_right]
-            
-            save_path = os.path.join(getattr(config, 'CROPPED_FACES_DIR', ''), f"{new_face_id}.jpg")
-            cv2.imwrite(save_path, cropped_face)
-        except Exception as e:
-            logging.warning(f"Non-fatal error: Failed to save cropped face image: {e}")
+    def delete_face(self, face_id: uuid.UUID) -> bool:
+        """Deletes a registered face encoding vector from FAISS index and UUID mapping."""
+        if face_id not in self.uuid_mapping:
+            logging.warning(f"delete_face: face_id '{face_id}' not found in FAISS uuid_mapping.")
+            return False
 
-        return RegistrationResult(success=True, face_id=new_face_id)
+        idx = self.uuid_mapping.index(face_id)
+        self.uuid_mapping.pop(idx)
+
+        if face_id in self.uuid_to_index:
+            del self.uuid_to_index[face_id]
+
+        # Rebuild FAISS index with remaining vectors
+        new_index = faiss.IndexFlatL2(self.vector_dimension)
+        if len(self.uuid_mapping) > 0 and self.index.ntotal > 0:
+            remaining_vectors = []
+            for i in range(self.index.ntotal):
+                if i != idx:
+                    remaining_vectors.append(self.index.reconstruct(i))
+            
+            if len(remaining_vectors) > 0:
+                vectors_np = np.array(remaining_vectors, dtype=np.float32)
+                new_index.add(vectors_np)
+
+        self.index = new_index
+        self.uuid_to_index = {fid: i for i, fid in enumerate(self.uuid_mapping)}
+
+        self._save_index_and_mapping()
+        logging.info(f"Successfully deleted face_id '{face_id}' from FAISS index.")
+        return True
 
 
     def recognize_face(self, image_bytes: bytes) -> Tuple[bool, Optional[uuid.UUID]]:
@@ -223,5 +272,13 @@ class FaceModel:
         distance = np.linalg.norm(known_encoding - unknown_encoding)
         
         return bool(distance <= config.FACE_RECOGNITION_TOLERANCE)
+    
+    def clear_all_faces(self) -> None:
+        """Resets the FAISS index and UUID mapping in memory to empty state."""
+        self.index = faiss.IndexFlatL2(self.vector_dimension)
+        self.uuid_mapping = []
+        self.uuid_to_index = {}
+        self._save_index_and_mapping()
+        logging.info("FaceModel FAISS index and UUID mapping reset to empty state.")
 
 face_model_instance = FaceModel()

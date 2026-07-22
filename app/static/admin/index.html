@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Portal - Quản lý Điểm danh & Nhân viên eKYC</title>
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- FullCalendar 6.1.10 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Header Navigation -->
+    <header class="app-header">
+      <div class="brand">
+        <i class="fa-solid fa-shield-halved brand-icon"></i>
+        <div class="brand-text">
+          <h1>eKYC Admin Portal</h1>
+          <span class="subtitle">Hệ thống Quản lý Nội bộ & Truy vấn Điểm danh</span>
+        </div>
+      </div>
+
+      <!-- SPA Tab Navigation Buttons -->
+      <nav class="nav-tabs">
+        <button id="tabBtnCalendar" class="nav-tab-btn active">
+          <i class="fa-regular fa-calendar-days"></i> Lịch sử Điểm danh
+        </button>
+        <button id="tabBtnEmployees" class="nav-tab-btn">
+          <i class="fa-solid fa-users-gear"></i> Quản lý Nhân viên
+        </button>
+      </nav>
+    </header>
+
+    <!-- TAB 1: CALENDAR VIEW -->
+    <section id="calendarTab" class="tab-content active">
+      <!-- Controls Bar for Calendar -->
+      <div class="calendar-controls-bar">
+        <!-- AutoComplete Search Box -->
+        <div class="search-box-wrapper">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input 
+            type="text" 
+            id="userSearchInput" 
+            placeholder="Tìm theo tên hoặc mã NV (vd: Nguyễn Văn A, NV-1001)..." 
+            autocomplete="off"
+          />
+          <button id="clearSearchBtn" class="clear-btn hidden"><i class="fa-solid fa-xmark"></i></button>
+          
+          <!-- Dropdown Suggestions -->
+          <div id="searchSuggestions" class="suggestions-dropdown hidden"></div>
+        </div>
+
+        <!-- Date Picker Jump to Month -->
+        <div class="date-picker-wrapper">
+          <label for="jumpDatePicker" title="Chọn ngày để nhảy đến tháng tương ứng">
+            <i class="fa-regular fa-calendar-days"></i> Nhảy đến ngày:
+          </label>
+          <input type="date" id="jumpDatePicker" class="custom-date-input" />
+        </div>
+      </div>
+
+      <!-- Selected User Info Strip -->
+      <div id="selectedUserStrip" class="user-strip hidden">
+        <div class="user-info-card">
+          <div class="avatar-circle">
+            <i class="fa-solid fa-user"></i>
+          </div>
+          <div class="user-details">
+            <h3 id="selectedName">Nguyễn Văn A</h3>
+            <p id="selectedMeta">
+              <span id="selectedCode"><i class="fa-solid fa-id-card"></i> NV-1001</span> | 
+              <span id="selectedGender"><i class="fa-solid fa-venus-mars"></i> Nam</span> | 
+              <span id="selectedDob"><i class="fa-solid fa-cake-candles"></i> 15/08/1995</span>
+            </p>
+          </div>
+          <button id="deselectUserBtn" class="btn-deselect"><i class="fa-solid fa-user-xmark"></i> Bỏ chọn</button>
+        </div>
+      </div>
+
+      <!-- Main Calendar Container -->
+      <div class="calendar-card">
+        <div id="calendar"></div>
+      </div>
+
+      <!-- Status Footer Legend -->
+      <footer class="app-footer">
+        <div class="legend-item">
+          <span class="legend-badge badge-checked-in"><i class="fa-solid fa-check"></i> ✔ Check-in 08:30:15</span>
+          <span>Ngày đã điểm danh trong tháng</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-badge badge-graphql"><i class="fa-solid fa-bolt"></i> GraphQL & AbortController</span>
+          <span>Truy vấn linh hoạt không giật lag</span>
+        </div>
+      </footer>
+    </section>
+
+    <!-- TAB 2: EMPLOYEE MANAGEMENT VIEW -->
+    <section id="employeesTab" class="tab-content hidden">
+      <!-- Top Action & Filter Bar -->
+      <div class="employee-toolbar">
+        <!-- Left 3 Action Buttons (Standard Mode) -->
+        <div id="standardActionBar" class="action-group">
+          <button id="btnAddEmployee" class="btn-action btn-add" title="Thêm nhân viên mới">
+            <i class="fa-solid fa-user-plus"></i> Thêm mới
+          </button>
+          <button id="btnEditEmployee" class="btn-action btn-edit" title="Chỉnh sửa thông tin nhân viên">
+            <i class="fa-solid fa-user-pen"></i> Chỉnh sửa
+          </button>
+          <button id="btnBulkDeleteMode" class="btn-action btn-delete-bulk" title="Chuyển sang chế độ xóa hàng loạt">
+            <i class="fa-solid fa-user-minus"></i> Xóa hàng loạt
+          </button>
+        </div>
+
+        <!-- Left Action Buttons (Bulk Delete Mode - Hidden by default) -->
+        <div id="bulkActionBar" class="action-group hidden">
+          <button id="btnCancelBulk" class="btn-action btn-cancel">
+            <i class="fa-solid fa-xmark"></i> Hủy
+          </button>
+          <button id="btnConfirmBulkDelete" class="btn-action btn-confirm-delete">
+            <i class="fa-solid fa-trash-can"></i> Xác nhận xóa (<span id="bulkSelectCount">0</span>)
+          </button>
+        </div>
+
+        <!-- Right Filters Bar -->
+        <div class="filter-group">
+          <!-- Keyword AutoComplete Input -->
+          <div class="search-box-wrapper search-box-sm">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input 
+              type="text" 
+              id="empSearchInput" 
+              placeholder="Tìm theo Tên hoặc Mã NV..." 
+              autocomplete="off"
+            />
+            <div id="empSearchSuggestions" class="suggestions-dropdown hidden"></div>
+          </div>
+
+          <!-- Date Filter Mode Selector & Date Inputs -->
+          <div class="date-filter-box">
+            <select id="empDateFilterMode" class="custom-select">
+              <option value="exact">Ngày cụ thể</option>
+              <option value="range">Khoảng ngày</option>
+            </select>
+
+            <input type="date" id="empExactDatePicker" class="custom-date-input" title="Chọn ngày cụ thể" />
+            <input type="date" id="empStartDatePicker" class="custom-date-input hidden" title="Từ ngày" />
+            <span id="rangeSeparator" class="hidden" style="color: var(--text-secondary);">đến</span>
+            <input type="date" id="empEndDatePicker" class="custom-date-input hidden" title="Đến ngày" />
+
+            <button id="btnClearEmpFilters" class="btn-icon" title="Xóa tất cả bộ lọc">
+              <i class="fa-solid fa-filter-circle-xmark"></i> Xóa lọc
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Employee Data Table Grid -->
+      <div class="table-card">
+        <table id="employeeTable" class="employee-table">
+          <thead>
+            <tr>
+              <th id="colCheckboxHeader" class="col-checkbox hidden">
+                <input type="checkbox" id="selectAllEmpCheckbox" />
+              </th>
+              <th class="sortable" data-col="employeeCode">
+                Mã NV <span class="sort-icon">▲</span>
+              </th>
+              <th class="sortable" data-col="name">
+                Họ và Tên <span class="sort-icon"></span>
+              </th>
+              <th class="sortable" data-col="gender">
+                Giới tính <span class="sort-icon"></span>
+              </th>
+              <th class="sortable" data-col="dob">
+                Ngày sinh <span class="sort-icon"></span>
+              </th>
+              <th class="sortable" data-col="createdAt">
+                Ngày tạo <span class="sort-icon"></span>
+              </th>
+              <th>Tài khoản / Thao tác</th>
+            </tr>
+          </thead>
+          <tbody id="employeeTableBody">
+            <!-- Dynamic Rows rendered via JS -->
+          </tbody>
+        </table>
+        
+        <div id="emptyTableNotice" class="empty-notice hidden">
+          <i class="fa-solid fa-folder-open"></i>
+          <p>Không tìm thấy dữ liệu nhân viên phù hợp</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- MODAL 1: ADD EMPLOYEE MODAL -->
+  <div id="addEmployeeModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-user-plus" style="color: var(--accent-emerald);"></i> Thêm Nhân Viên Mới</h3>
+        <button class="modal-close-btn" data-close="addEmployeeModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="addEmployeeForm" class="modal-body">
+        <div class="form-group">
+          <label>Họ và Tên <span class="req">*</span></label>
+          <input type="text" id="addName" required placeholder="Nhập họ tên (vd: Nguyễn Văn A)" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Mã Nhân Viên</label>
+            <input type="text" id="addCode" placeholder="Để trống Backend tự sinh tịnh tiến" />
+          </div>
+          <div class="form-group">
+            <label>Giới tính</label>
+            <select id="addGender" class="custom-select">
+              <option value="Nam">Nam</option>
+              <option value="Nữ">Nữ</option>
+              <option value="Khác">Khác</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Ngày sinh</label>
+            <input type="date" id="addDob" class="custom-date-input" />
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="addEmail" placeholder="vd: a.nguyen@company.com" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tên đăng nhập (Username)</label>
+            <input type="text" id="addUsername" placeholder="Để trống lấy theo Mã NV" />
+          </div>
+          <div class="form-group">
+            <label>Mật khẩu</label>
+            <input type="text" id="addPassword" placeholder="Để trống tự sinh ngẫu nhiên" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-action btn-cancel" data-close="addEmployeeModal">Hủy</button>
+          <button type="submit" class="btn-action btn-add"><i class="fa-solid fa-check"></i> Thêm Nhân Viên</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: EDIT EMPLOYEE MODAL -->
+  <div id="editEmployeeModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-user-pen" style="color: var(--accent-amber);"></i> Chỉnh Sửa Thông Tin Nhân Viên</h3>
+        <button class="modal-close-btn" data-close="editEmployeeModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="editEmployeeForm" class="modal-body">
+        <input type="hidden" id="editUserId" />
+        <div class="form-group">
+          <label>Họ và Tên <span class="req">*</span></label>
+          <input type="text" id="editName" required />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Mã Nhân Viên</label>
+            <input type="text" id="editCode" />
+          </div>
+          <div class="form-group">
+            <label>Giới tính</label>
+            <select id="editGender" class="custom-select">
+              <option value="Nam">Nam</option>
+              <option value="Nữ">Nữ</option>
+              <option value="Khác">Khác</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Ngày sinh</label>
+            <input type="date" id="editDob" class="custom-date-input" />
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="editEmail" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tên đăng nhập</label>
+            <input type="text" id="editUsername" />
+          </div>
+        </div>
+        <div class="modal-footer" style="justify-content: space-between;">
+          <button type="button" id="btnSingleDelete" class="btn-action btn-confirm-delete">
+            <i class="fa-solid fa-trash-can"></i> Xóa nhân viên này
+          </button>
+          <div style="display: flex; gap: 10px;">
+            <button type="button" class="btn-action btn-cancel" data-close="editEmployeeModal">Hủy</button>
+            <button type="submit" class="btn-action btn-edit"><i class="fa-solid fa-floppy-disk"></i> Lưu Thay Đổi</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 3: USER DETAIL VIEW MODAL (WITH PASSWORD & HISTORY JUMP) -->
+  <div id="userDetailModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-address-card" style="color: var(--accent-cyan);"></i> Thông Tin Chi Tiết Nhân Viên</h3>
+        <button class="modal-close-btn" data-close="userDetailModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="user-detail-card">
+          <div id="detailAvatarContainer" class="detail-avatar">
+            <i class="fa-solid fa-user"></i>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-item full-width">
+              <span class="detail-label">Trạng thái Đăng ký Khuôn mặt</span>
+              <span id="detailFaceStatus" class="detail-value">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Họ và Tên</span>
+              <span id="detailName" class="detail-value text-bold">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Mã Nhân Viên</span>
+              <span id="detailCode" class="detail-value pill-code">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Giới tính</span>
+              <span id="detailGender" class="detail-value">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Ngày sinh</span>
+              <span id="detailDob" class="detail-value">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Email</span>
+              <span id="detailEmail" class="detail-value">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Tên đăng nhập</span>
+              <span id="detailUsername" class="detail-value">-</span>
+            </div>
+            <div class="detail-item full-width">
+              <span class="detail-label">Mật khẩu Khôi phục / Cấp lại</span>
+              <div class="password-toggle-box">
+                <input type="password" id="detailPassword" readonly value="123456" />
+                <button type="button" id="togglePasswordBtn" class="btn-icon-sm" title="Hiển thị/Ẩn mật khẩu">
+                  <i class="fa-solid fa-eye"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="justify-content: space-between; margin-top: 16px; flex-wrap: wrap; gap: 10px;">
+          <input type="file" id="faceUploadInput" accept="image/jpeg,image/png" class="hidden" />
+          <div style="display: flex; gap: 8px;">
+            <button id="btnRegisterFace" class="btn-action btn-add">
+              <i class="fa-solid fa-camera"></i> 📸 Đăng ký Khuôn mặt
+            </button>
+            <button id="btnDeleteFace" class="btn-action btn-confirm-delete hidden">
+              <i class="fa-solid fa-trash-can"></i> 🗑️ Xóa Khuôn mặt
+            </button>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button id="btnJumpToCalendar" class="btn-action btn-view-history">
+              <i class="fa-regular fa-calendar-days"></i> 📅 Xem Lịch sử
+            </button>
+            <button type="button" class="btn-action btn-cancel" data-close="userDetailModal">Đóng</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 4: CONFIRMATION PROMPT MODAL -->
+  <div id="confirmModal" class="modal-overlay hidden">
+    <div class="modal-card modal-sm">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i> Xác Nhận Hành Động</h3>
+        <button class="modal-close-btn" data-close="confirmModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmMessage" style="font-size: 0.95rem; color: var(--text-primary);">
+          Bạn có chắc chắn muốn thực hiện hành động này?
+        </p>
+        <div class="modal-footer" style="margin-top: 20px;">
+          <button type="button" class="btn-action btn-cancel" data-close="confirmModal">Hủy</button>
+          <button type="button" id="btnConfirmAction" class="btn-action btn-confirm-delete">Xác Nhận Xóa</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

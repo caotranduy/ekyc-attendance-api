@@ -12,6 +12,9 @@ annotated-types==0.7.0
 # Database
 SQLAlchemy>=2.0.0,<2.1.0
 
+# GraphQL API
+strawberry-graphql==0.322.0
+
 # Security & Authentication
 PyJWT>=2.8.0,<3.0.0
 passlib[bcrypt]>=1.7.4

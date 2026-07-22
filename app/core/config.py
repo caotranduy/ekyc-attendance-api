@@ -16,15 +16,22 @@ class Settings(BaseSettings):
 
 
     CROPPED_FACES_DIR : str = os.path.join(DATA_DIR, 'cropped_faces')
+    MODELS_DIR : str = os.path.join(DATA_DIR, 'models')
     ENCODINGS_DB_PATH :str = os.path.join(DATA_DIR, 'encodings.pkl')
     FAISS_INDEX_PATH : str = os.path.join(DATA_DIR, 'faiss.index')
     MAPPING_DB_PATH :str = os.path.join(DATA_DIR, 'uuid_mapping.pkl')
+    ANTI_SPOOF_MODEL_PATH : str = (
+        os.path.join(MODELS_DIR, 'minifasnet_v2.onnx')
+        if os.path.exists(os.path.join(MODELS_DIR, 'minifasnet_v2.onnx'))
+        else os.path.join(MODELS_DIR, '2.7_80x80_MiniFASNetV2.onnx')
+    )
 
     DATABASE_URL: str = ""
 
     # Create necessary directories at startup
     os.makedirs(DATA_DIR, exist_ok=True)
     os.makedirs(CROPPED_FACES_DIR, exist_ok=True)
+    os.makedirs(MODELS_DIR, exist_ok=True)
 
     from pydantic import model_validator
 
@@ -35,11 +42,16 @@ class Settings(BaseSettings):
         return self
 
     FACE_RECOGNITION_TOLERANCE : float = 0.6
+    LIVENESS_THRESHOLD : float = 0.85
 
 
-    SECRET_KEY: str = ""
+    SECRET_KEY: str = "aiface_super_secret_ekyc_key_2026"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30  # 30 days
+
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "admin_password_2026"
 
     model_config = SettingsConfigDict(
             env_file=".env",              # Chỉ định file cần đọc

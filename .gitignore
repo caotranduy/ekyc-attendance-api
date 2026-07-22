@@ -2,3 +2,4 @@ dlib/
 .venv/
 *.pyc
 .env
+*.jpg

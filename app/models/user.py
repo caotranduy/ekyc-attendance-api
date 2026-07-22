@@ -27,6 +27,12 @@ class User(Base):
     username: Mapped[str | None] = mapped_column(String(50), unique=True, nullable=True, index=True)
     email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
     hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    password: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    
+    # Extended Employee Details
+    employee_code: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True, index=True)
+    gender: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    dob: Mapped[datetime.date | None] = mapped_column(DateTime, nullable=True)
     
     # Status & Authorization flags
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -37,5 +43,6 @@ class User(Base):
 
     # Relationships
     face: Mapped["UserFace"] = relationship("UserFace", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    check_in_logs: Mapped[list["CheckInLog"]] = relationship("CheckInLog", back_populates="user", cascade="all, delete-orphan")
 
 

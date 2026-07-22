@@ -1,6 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel, Field
-import uuid6 as uuid
+import uuid
 
 
 class RegisterSuccessResponse(BaseModel):
@@ -41,4 +41,24 @@ class VerifyResponse(BaseModel):
             "example": {
                 "verified": True
             }
-        }        
+        }
+
+class ErrorResponse(BaseModel):
+    """Standardized error response schema."""
+    error_code: str = Field(..., description="Application-defined uppercase error code.")
+    error_message: str = Field(..., description="Human-readable error explanation.")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "error_code": "ALREADY_CHECKIN",
+                "error_message": "User has already checked in today."
+            }
+        }
+
+class CheckInResponse(BaseModel):
+    """Defines the successful check-in response schema."""
+    status: str = "success"
+    message: str = "Check-in successful."
+    user_id: uuid.UUID = Field(..., description="ID of the user who checked in.")
+    check_in_at: str = Field(..., description="Timestamp of the check-in.")
