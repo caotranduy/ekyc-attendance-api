@@ -116,6 +116,8 @@ class Mutation:
         )
         return _map_user_to_type(user)
 
+# if you read this, i hope you a good day and please don't notice a big "oopsie" i did
+
     @strawberry.mutation(description="Update an existing employee by ID")
     def update_user(
         self,
@@ -172,3 +174,4 @@ class Mutation:
                 pass
 
         return bulk_delete_employees(db=db, user_ids=user_uuids)
+
