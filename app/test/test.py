@@ -424,6 +424,12 @@ def test_jwt_revocation_on_password_change() -> None:
     # Case 2: Password changed -> Revoked with 401
     active_user_new_pwd = User(id=uuid.UUID(uid_str), name="Test", is_active=True, password="new_changed_password_999")
     mock_db.query.return_value.filter.return_value.first.return_value = active_user_new_pwd
+    try:
+        get_optional_user_id(mock_req, db=mock_db)
+        assert False, "Should have raised HTTPException 401 for changed password"
+    except HTTPException as e:
+        assert e.status_code == 401
+        assert "password" in e.detail.lower()
 
 def test_refresh_token_generation() -> None:
     """Verifies create_refresh_token and type claim validation."""
@@ -433,6 +439,9 @@ def test_refresh_token_generation() -> None:
 
     uid_str = "0190c58e-1001-7000-8000-000000000001"
     ref_token = create_refresh_token(subject=uid_str, password_snippet="pwd123")
+    payload = jwt.decode(ref_token, config.SECRET_KEY, algorithms=[config.JWT_ALGORITHM])
+    assert payload["sub"] == uid_str
+    assert payload["type"] == "refresh"
 
 def test_mobile_personal_info_and_history() -> None:
     """Verifies mobile personal info and history endpoints."""
@@ -458,6 +467,9 @@ def test_mobile_personal_info_and_history() -> None:
     assert info_res.name == user.name
 
     # 2. Test get_personal_check_in_history_mobile
+    history_res = get_personal_check_in_history_mobile(request=mock_req, db=db)
+    assert isinstance(history_res, list)
+
 def test_graphql_context_bearer_token() -> None:
     """Verifies get_graphql_context extracts current_user from Bearer token."""
     import asyncio
@@ -479,10 +491,32 @@ def test_graphql_context_bearer_token() -> None:
     assert ctx["current_user"] is not None
     assert ctx["current_user"].id == user.id
 
+def test_process_ekyc_check_in_no_face_detected() -> None:
+    """Verifies process_ekyc_check_in raises AppException(NO_FACE_DETECTED) when ValueError is raised with 'No face detected'."""
+    from app.services.check_in_service import process_ekyc_check_in
+    from app.core.exceptions import AppException
+    from app.core.error_codes import ErrorCode
+    import datetime
 
+    mock_db = MagicMock()
+    mock_model = MagicMock()
+    mock_anti_spoof = MagicMock()
+    # Mock evaluate_liveness_frames to raise ValueError representing no face detected
+    mock_anti_spoof.evaluate_liveness_frames.side_effect = ValueError("No face detected in liveness frame.")
 
+    dummy_frames = [b"frame1", b"frame2", b"frame3"]
+    client_time = datetime.datetime.utcnow()
 
+    with pytest.raises(AppException) as excinfo:
+        process_ekyc_check_in(
+            db=mock_db,
+            model=mock_model,
+            anti_spoof_service=mock_anti_spoof,
+            user_id=uuid.UUID("0190c58e-1001-7000-8000-000000000001"),
+            frames=dummy_frames,
+            client_timestamp=client_time
+        )
 
-
-
-
+    assert excinfo.value.status_code == 400
+    assert excinfo.value.error_code == ErrorCode.NO_FACE_DETECTED.value
+    assert "No face detected" in excinfo.value.error_message
