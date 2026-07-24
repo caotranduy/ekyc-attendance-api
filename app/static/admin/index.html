@@ -1,23 +1,25 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Portal - Quản lý Điểm danh & Nhân viên eKYC</title>
-  
+
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  
+
   <!-- FullCalendar 6.1.10 CDN -->
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-  
+
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="./styles.css">
 </head>
+
 <body>
 
   <div class="app-container">
@@ -49,14 +51,10 @@
         <!-- AutoComplete Search Box -->
         <div class="search-box-wrapper">
           <i class="fa-solid fa-magnifying-glass search-icon"></i>
-          <input 
-            type="text" 
-            id="userSearchInput" 
-            placeholder="Tìm theo tên hoặc mã NV (vd: Nguyễn Văn A, NV-1001)..." 
-            autocomplete="off"
-          />
+          <input type="text" id="userSearchInput" placeholder="Tìm theo tên hoặc mã NV (vd: Nguyễn Văn A, NV-1001)..."
+            autocomplete="off" />
           <button id="clearSearchBtn" class="clear-btn hidden"><i class="fa-solid fa-xmark"></i></button>
-          
+
           <!-- Dropdown Suggestions -->
           <div id="searchSuggestions" class="suggestions-dropdown hidden"></div>
         </div>
@@ -79,8 +77,8 @@
           <div class="user-details">
             <h3 id="selectedName">Nguyễn Văn A</h3>
             <p id="selectedMeta">
-              <span id="selectedCode"><i class="fa-solid fa-id-card"></i> NV-1001</span> | 
-              <span id="selectedGender"><i class="fa-solid fa-venus-mars"></i> Nam</span> | 
+              <span id="selectedCode"><i class="fa-solid fa-id-card"></i> NV-1001</span> |
+              <span id="selectedGender"><i class="fa-solid fa-venus-mars"></i> Nam</span> |
               <span id="selectedDob"><i class="fa-solid fa-cake-candles"></i> 15/08/1995</span>
             </p>
           </div>
@@ -109,59 +107,65 @@
     <!-- TAB 2: EMPLOYEE MANAGEMENT VIEW -->
     <section id="employeesTab" class="tab-content hidden">
       <!-- Top Action & Filter Bar -->
+      <!-- Top Action & Filter Bar -->
       <div class="employee-toolbar">
-        <!-- Left 3 Action Buttons (Standard Mode) -->
-        <div id="standardActionBar" class="action-group">
-          <button id="btnAddEmployee" class="btn-action btn-add" title="Thêm nhân viên mới">
-            <i class="fa-solid fa-user-plus"></i> Thêm mới
-          </button>
-          <button id="btnEditEmployee" class="btn-action btn-edit" title="Chỉnh sửa thông tin nhân viên">
-            <i class="fa-solid fa-user-pen"></i> Chỉnh sửa
-          </button>
-          <button id="btnBulkDeleteMode" class="btn-action btn-delete-bulk" title="Chuyển sang chế độ xóa hàng loạt">
-            <i class="fa-solid fa-user-minus"></i> Xóa hàng loạt
-          </button>
-        </div>
-
-        <!-- Left Action Buttons (Bulk Delete Mode - Hidden by default) -->
-        <div id="bulkActionBar" class="action-group hidden">
-          <button id="btnCancelBulk" class="btn-action btn-cancel">
-            <i class="fa-solid fa-xmark"></i> Hủy
-          </button>
-          <button id="btnConfirmBulkDelete" class="btn-action btn-confirm-delete">
-            <i class="fa-solid fa-trash-can"></i> Xác nhận xóa (<span id="bulkSelectCount">0</span>)
-          </button>
-        </div>
-
-        <!-- Right Filters Bar -->
-        <div class="filter-group">
-          <!-- Keyword AutoComplete Input -->
-          <div class="search-box-wrapper search-box-sm">
-            <i class="fa-solid fa-magnifying-glass search-icon"></i>
-            <input 
-              type="text" 
-              id="empSearchInput" 
-              placeholder="Tìm theo Tên hoặc Mã NV..." 
-              autocomplete="off"
-            />
-            <div id="empSearchSuggestions" class="suggestions-dropdown hidden"></div>
+        <!-- Row 1: Actions -->
+        <div class="toolbar-row">
+          <!-- Left 3 Action Buttons (Standard Mode) -->
+          <div id="standardActionBar" class="action-group">
+            <button id="btnAddEmployee" class="btn-action btn-add" title="Thêm nhân viên mới">
+              <i class="fa-solid fa-user-plus"></i> Thêm mới
+            </button>
+            <button id="btnEditEmployee" class="btn-action btn-edit" title="Chỉnh sửa thông tin nhân viên">
+              <i class="fa-solid fa-user-pen"></i> Chỉnh sửa
+            </button>
+            <button id="btnBulkDeleteMode" class="btn-action btn-delete-bulk" title="Chuyển sang chế độ xóa hàng loạt">
+              <i class="fa-solid fa-user-minus"></i> Xóa hàng loạt
+            </button>
           </div>
 
-          <!-- Date Filter Mode Selector & Date Inputs -->
-          <div class="date-filter-box">
-            <select id="empDateFilterMode" class="custom-select">
-              <option value="exact">Ngày cụ thể</option>
-              <option value="range">Khoảng ngày</option>
-            </select>
-
-            <input type="date" id="empExactDatePicker" class="custom-date-input" title="Chọn ngày cụ thể" />
-            <input type="date" id="empStartDatePicker" class="custom-date-input hidden" title="Từ ngày" />
-            <span id="rangeSeparator" class="hidden" style="color: var(--text-secondary);">đến</span>
-            <input type="date" id="empEndDatePicker" class="custom-date-input hidden" title="Đến ngày" />
-
-            <button id="btnClearEmpFilters" class="btn-icon" title="Xóa tất cả bộ lọc">
-              <i class="fa-solid fa-filter-circle-xmark"></i> Xóa lọc
+          <!-- Left Action Buttons (Bulk Delete Mode - Hidden by default) -->
+          <div id="bulkActionBar" class="action-group hidden">
+            <button id="btnCancelBulk" class="btn-action btn-cancel">
+              <i class="fa-solid fa-xmark"></i> Hủy
             </button>
+            <button id="btnConfirmBulkDelete" class="btn-action btn-confirm-delete">
+              <i class="fa-solid fa-trash-can"></i> Xác nhận xóa (<span id="bulkSelectCount">0</span>)
+            </button>
+          </div>
+        </div>
+
+        <!-- Row 2: Filters & Search -->
+        <div class="toolbar-row filter-row">
+          <div class="filter-group">
+            <!-- Keyword AutoComplete Input -->
+            <div class="search-box-wrapper search-box-sm">
+              <i class="fa-solid fa-magnifying-glass search-icon"></i>
+              <input type="text" id="empSearchInput" placeholder="Tìm theo Tên hoặc Mã NV..." autocomplete="off" />
+              <div id="empSearchSuggestions" class="suggestions-dropdown hidden"></div>
+            </div>
+
+            <!-- Face Recognition Search Button -->
+            <button id="btnOpenFaceSearch" class="btn-action btn-view-history" title="Tìm kiếm nhân viên bằng khuôn mặt">
+              <i class="fa-solid fa-face-viewfinder"></i> Nhận diện tìm kiếm
+            </button>
+
+            <!-- Date Filter Mode Selector & Date Inputs -->
+            <div class="date-filter-box">
+              <select id="empDateFilterMode" class="custom-select">
+                <option value="exact">Ngày cụ thể</option>
+                <option value="range">Khoảng ngày</option>
+              </select>
+
+              <input type="date" id="empExactDatePicker" class="custom-date-input" title="Chọn ngày cụ thể" />
+              <input type="date" id="empStartDatePicker" class="custom-date-input hidden" title="Từ ngày" />
+              <span id="rangeSeparator" class="hidden" style="color: var(--text-secondary);">đến</span>
+              <input type="date" id="empEndDatePicker" class="custom-date-input hidden" title="Đến ngày" />
+
+              <button id="btnClearEmpFilters" class="btn-icon" title="Xóa tất cả bộ lọc">
+                <i class="fa-solid fa-filter-circle-xmark"></i> Xóa lọc
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -196,7 +200,7 @@
             <!-- Dynamic Rows rendered via JS -->
           </tbody>
         </table>
-        
+
         <div id="emptyTableNotice" class="empty-notice hidden">
           <i class="fa-solid fa-folder-open"></i>
           <p>Không tìm thấy dữ liệu nhân viên phù hợp</p>
@@ -308,7 +312,8 @@
           </button>
           <div style="display: flex; gap: 10px;">
             <button type="button" class="btn-action btn-cancel" data-close="editEmployeeModal">Hủy</button>
-            <button type="submit" class="btn-action btn-edit"><i class="fa-solid fa-floppy-disk"></i> Lưu Thay Đổi</button>
+            <button type="submit" class="btn-action btn-edit"><i class="fa-solid fa-floppy-disk"></i> Lưu Thay
+              Đổi</button>
           </div>
         </div>
       </form>
@@ -319,7 +324,8 @@
   <div id="userDetailModal" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header">
-        <h3><i class="fa-solid fa-address-card" style="color: var(--accent-cyan);"></i> Thông Tin Chi Tiết Nhân Viên</h3>
+        <h3><i class="fa-solid fa-address-card" style="color: var(--accent-cyan);"></i> Thông Tin Chi Tiết Nhân Viên
+        </h3>
         <button class="modal-close-btn" data-close="userDetailModal"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="modal-body">
@@ -408,6 +414,47 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <!-- MODAL 5: FACE RECOGNITION SEARCH MODAL -->
+  <div id="faceSearchModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-face-viewfinder" style="color: var(--accent-cyan);"></i> Nhận Diện Tìm Kiếm Nhân Viên</h3>
+        <button class="modal-close-btn" data-close="faceSearchModal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px; align-items: center;">
+        <p style="font-size: 0.9rem; color: var(--text-secondary); width: 100%; text-align: center;">
+          Chọn 1 tấm ảnh chứa khuôn mặt nhân viên và khoanh vùng cắt để tìm kiếm trong cơ sở dữ liệu.
+        </p>
+
+        <!-- Drop zone or file input trigger -->
+        <input type="file" id="faceSearchFileInput" accept="image/jpeg,image/png" class="hidden" />
+        <button id="btnSelectFaceSearchPhoto" class="btn-action btn-edit" style="width: 100%; justify-content: center;">
+          <i class="fa-solid fa-image"></i> Chọn ảnh khuôn mặt
+        </button>
+
+        <!-- Interactive Crop Area -->
+        <div id="cropperContainer" class="hidden" style="width: 100%; display: flex; flex-direction: column; align-items: center; background: rgba(0,0,0,0.2); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+          <div style="position: relative; max-width: 100%; text-align: center;">
+            <canvas id="cropperCanvas" style="max-width: 100%; max-height: 380px; border-radius: 4px; cursor: move;"></canvas>
+          </div>
+          <div id="cropperSizeNotice" style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 8px; text-align: center;">
+            Kích thước vùng cắt: <span id="cropDimensionsText">0 x 0</span> px
+          </div>
+          <div id="cropperWarningNotice" style="font-size: 0.82rem; color: var(--accent-rose); margin-top: 4px; font-weight: 600; text-align: center;" class="hidden">
+            ⚠️ Vùng cắt quá nhỏ! Vui lòng mở rộng vùng chọn (tối thiểu 80x80px).
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-action btn-cancel" data-close="faceSearchModal">Hủy</button>
+        <button type="button" id="btnExecuteFaceSearch" class="btn-action btn-add hidden" disabled>
+          <i class="fa-solid fa-bolt"></i> Bắt đầu nhận diện
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
 </body>
+
 </html>

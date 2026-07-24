@@ -864,7 +864,8 @@ document.addEventListener('DOMContentLoaded', () => {
           detailFaceStatus.innerHTML = '<span class="face-badge-registered"><i class="fa-solid fa-face-smile"></i> 🟢 Đã đăng ký (FAISS 128D Vector)</span>';
           renderEmployeeTable();
         } else {
-          alert(`Lỗi đăng ký khuôn mặt: ${resData.detail || 'Không thể xử lý tệp ảnh'}`);
+          const errorMsg = resData.error_message || resData.detail || 'Không thể xử lý tệp ảnh';
+          alert(`Lỗi đăng ký khuôn mặt: ${errorMsg}`);
         }
       } catch (err) {
         console.error('Register Face Error:', err);
@@ -901,7 +902,8 @@ document.addEventListener('DOMContentLoaded', () => {
               }
               renderEmployeeTable();
             } else {
-              alert(`Lỗi xóa khuôn mặt: ${resData.detail || 'Không thể thực hiện'}`);
+              const errorMsg = resData.error_message || resData.detail || 'Không thể thực hiện';
+              alert(`Lỗi xóa khuôn mặt: ${errorMsg}`);
             }
           } catch (err) {
             console.error('Delete Face Error:', err);
@@ -926,6 +928,348 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     closeModal(confirmModal);
   });
+
+  // ==========================================
+  // 12. FACE RECOGNITION SEARCH LOGIC
+  // ==========================================
+  const faceSearchModal = document.getElementById('faceSearchModal');
+  const btnOpenFaceSearch = document.getElementById('btnOpenFaceSearch');
+  const faceSearchFileInput = document.getElementById('faceSearchFileInput');
+  const btnSelectFaceSearchPhoto = document.getElementById('btnSelectFaceSearchPhoto');
+  const cropperContainer = document.getElementById('cropperContainer');
+  const cropperCanvas = document.getElementById('cropperCanvas');
+  const cropDimensionsText = document.getElementById('cropDimensionsText');
+  const cropperWarningNotice = document.getElementById('cropperWarningNotice');
+  const btnExecuteFaceSearch = document.getElementById('btnExecuteFaceSearch');
+
+  let originalImage = null;
+  let scaleFactor = 1.0;
+  
+  // Crop box: aspect ratio 4:6 (w:h = 1:1.5)
+  let cropBox = { x: 50, y: 50, w: 100, h: 150 };
+  let isDragging = false;
+  let isResizing = false;
+  let dragStart = { x: 0, y: 0 };
+  const handleSize = 15; // Resize handle bottom-right corner
+
+  if (btnOpenFaceSearch) {
+    btnOpenFaceSearch.addEventListener('click', () => {
+      // Reset state
+      originalImage = null;
+      cropperContainer.classList.add('hidden');
+      btnExecuteFaceSearch.classList.add('hidden');
+      btnExecuteFaceSearch.disabled = true;
+      faceSearchFileInput.value = '';
+      openModal(faceSearchModal);
+    });
+  }
+
+  if (btnSelectFaceSearchPhoto) {
+    btnSelectFaceSearchPhoto.addEventListener('click', () => {
+      faceSearchFileInput.click();
+    });
+  }
+
+  if (faceSearchFileInput) {
+    faceSearchFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        originalImage = new Image();
+        originalImage.onload = () => {
+          initializeCropper();
+        };
+        originalImage.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function initializeCropper() {
+    cropperContainer.classList.remove('hidden');
+    btnExecuteFaceSearch.classList.remove('hidden');
+
+    const maxW = 500;
+    const maxH = 380;
+    let canvasW = originalImage.naturalWidth;
+    let canvasH = originalImage.naturalHeight;
+
+    // Scale to fit max boundaries
+    if (canvasW > maxW) {
+      canvasH = (maxW / canvasW) * canvasH;
+      canvasW = maxW;
+    }
+    if (canvasH > maxH) {
+      canvasW = (maxH / canvasH) * canvasW;
+      canvasH = maxH;
+    }
+
+    cropperCanvas.width = canvasW;
+    cropperCanvas.height = canvasH;
+    scaleFactor = canvasW / originalImage.naturalWidth;
+
+    // Default crop box: centered, width = 30% of canvas, aspect ratio 4:6
+    const boxW = Math.max(80, Math.min(canvasW * 0.4, 200));
+    const boxH = boxW * 1.5;
+    cropBox = {
+      x: (canvasW - boxW) / 2,
+      y: (canvasH - boxH) / 2,
+      w: boxW,
+      h: boxH
+    };
+
+    drawCropper();
+    updateCropMetrics();
+  }
+
+  function drawCropper() {
+    const ctx = cropperCanvas.getContext('2d');
+    if (!ctx || !originalImage) return;
+
+    // 1. Draw original image
+    ctx.drawImage(originalImage, 0, 0, cropperCanvas.width, cropperCanvas.height);
+
+    // 2. Draw semi-transparent dark overlay outside crop box
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    
+    // Top
+    ctx.fillRect(0, 0, cropperCanvas.width, cropBox.y);
+    // Bottom
+    ctx.fillRect(0, cropBox.y + cropBox.h, cropperCanvas.width, cropperCanvas.height - (cropBox.y + cropBox.h));
+    // Left
+    ctx.fillRect(0, cropBox.y, cropBox.x, cropBox.h);
+    // Right
+    ctx.fillRect(cropBox.x + cropBox.w, cropBox.y, cropperCanvas.width - (cropBox.x + cropBox.w), cropBox.h);
+
+    // 3. Draw crop box border
+    ctx.strokeStyle = 'var(--accent-cyan)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(cropBox.x, cropBox.y, cropBox.w, cropBox.h);
+
+    // 4. Draw resize handle (bottom-right corner)
+    ctx.fillStyle = 'var(--accent-cyan)';
+    ctx.beginPath();
+    ctx.arc(cropBox.x + cropBox.w, cropBox.y + cropBox.h, 6, 0, 2 * Math.PI);
+    ctx.fill();
+    
+    // Draw outer guide circle for resize handle
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cropBox.x + cropBox.w, cropBox.y + cropBox.h, 10, 0, 2 * Math.PI);
+    ctx.stroke();
+  }
+
+  function updateCropMetrics() {
+    const origW = Math.round(cropBox.w / scaleFactor);
+    const origH = Math.round(cropBox.h / scaleFactor);
+
+    cropDimensionsText.textContent = `${origW} x ${origH}`;
+
+    // Refuse if cropped area size is too small on original image (< 80px)
+    if (origW < 80 || origH < 80) {
+      cropperWarningNotice.classList.remove('hidden');
+      btnExecuteFaceSearch.disabled = true;
+    } else {
+      cropperWarningNotice.classList.add('hidden');
+      btnExecuteFaceSearch.disabled = false;
+    }
+  }
+
+  // Interactive mouse/touch events on canvas
+  function getMousePos(e) {
+    const rect = cropperCanvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
+  }
+
+  function handleStart(e) {
+    if (!originalImage) return;
+    const pos = getMousePos(e);
+
+    // Check if clicking resize handle (bottom-right corner)
+    const handleX = cropBox.x + cropBox.w;
+    const handleY = cropBox.y + cropBox.h;
+    const dist = Math.hypot(pos.x - handleX, pos.y - handleY);
+
+    if (dist <= handleSize) {
+      isResizing = true;
+      e.preventDefault();
+    } else if (
+      pos.x >= cropBox.x &&
+      pos.x <= cropBox.x + cropBox.w &&
+      pos.y >= cropBox.y &&
+      pos.y <= cropBox.y + cropBox.h
+    ) {
+      isDragging = true;
+      dragStart = {
+        x: pos.x - cropBox.x,
+        y: pos.y - cropBox.y
+      };
+      e.preventDefault();
+    }
+  }
+
+  function handleMove(e) {
+    if (!originalImage || (!isDragging && !isResizing)) return;
+    const pos = getMousePos(e);
+
+    if (isDragging) {
+      cropBox.x = pos.x - dragStart.x;
+      cropBox.y = pos.y - dragStart.y;
+
+      // Bound clamping
+      cropBox.x = Math.max(0, Math.min(cropBox.x, cropperCanvas.width - cropBox.w));
+      cropBox.y = Math.max(0, Math.min(cropBox.y, cropperCanvas.height - cropBox.h));
+    }
+
+    if (isResizing) {
+      let newW = pos.x - cropBox.x;
+      // Maintain 4:6 aspect ratio (h = w * 1.5)
+      let newH = newW * 1.5;
+
+      // Keep minimum size
+      if (newW < 30) {
+        newW = 30;
+        newH = 45;
+      }
+
+      // Bound clamping
+      if (cropBox.x + newW > cropperCanvas.width) {
+        newW = cropperCanvas.width - cropBox.x;
+        newH = newW * 1.5;
+      }
+      if (cropBox.y + newH > cropperCanvas.height) {
+        newH = cropperCanvas.height - cropBox.y;
+        newW = newH / 1.5;
+      }
+
+      cropBox.w = newW;
+      cropBox.h = newH;
+    }
+
+    drawCropper();
+    updateCropMetrics();
+    e.preventDefault();
+  }
+
+  function handleEnd() {
+    isDragging = false;
+    isResizing = false;
+  }
+
+  if (cropperCanvas) {
+    cropperCanvas.addEventListener('mousedown', handleStart);
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleEnd);
+
+    // Mobile touch events
+    cropperCanvas.addEventListener('touchstart', handleStart, { passive: false });
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleEnd);
+  }
+
+  // Execute Face Search (Recognize API call)
+  if (btnExecuteFaceSearch) {
+    btnExecuteFaceSearch.addEventListener('click', () => {
+      if (!originalImage) return;
+
+      const origX = cropBox.x / scaleFactor;
+      const origY = cropBox.y / scaleFactor;
+      const origW = cropBox.w / scaleFactor;
+      const origH = cropBox.h / scaleFactor;
+
+      // Final check for safety
+      if (origW < 80 || origH < 80) {
+        alert('Vùng cắt quá nhỏ (yêu cầu tối thiểu 80x80px). Không thể gửi đi.');
+        return;
+      }
+
+      // Create cropped Canvas
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = origW;
+      tempCanvas.height = origH;
+      const tempCtx = tempCanvas.getContext('2d');
+      
+      if (!tempCtx) {
+        alert('Lỗi tạo Canvas ảo để cắt ảnh.');
+        return;
+      }
+
+      tempCtx.drawImage(
+        originalImage,
+        origX, origY, origW, origH, // Source
+        0, 0, origW, origH          // Target
+      );
+
+      btnExecuteFaceSearch.disabled = true;
+      btnExecuteFaceSearch.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang tìm kiếm...';
+
+      tempCanvas.toBlob(async (blob) => {
+        if (!blob) {
+          alert('Lỗi chuyển đổi ảnh cắt sang tệp nhị phân.');
+          btnExecuteFaceSearch.disabled = false;
+          btnExecuteFaceSearch.innerHTML = '<i class="fa-solid fa-bolt"></i> Bắt đầu nhận diện';
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', blob, 'face_crop.jpg');
+
+        try {
+          const response = await fetch('/api/admin/face/recognize', {
+            method: 'POST',
+            body: formData
+          });
+
+          const resData = await response.json();
+          if (response.ok) {
+            if (resData.match && resData.user_id) {
+              alert(`Nhận diện thành công! Nhân viên: ${resData.name} (${resData.employee_code || 'Không có mã'})`);
+              closeModal(faceSearchModal);
+              
+              // Find employee in local list and open detail modal
+              const localEmp = currentEmployeesList.find(u => u.id === resData.user_id);
+              if (localEmp) {
+                openUserDetailModal(localEmp);
+              } else {
+                // If not found in current page, query details from GraphQL
+                const detailsQuery = `
+                  query GetUser($id: String!) {
+                    user(id: $id) {
+                      id name employeeCode username gender dob email password hasRegisteredFace
+                    }
+                  }
+                `;
+                const qData = await queryGraphQL(detailsQuery, { id: resData.user_id });
+                if (qData && qData.user) {
+                  openUserDetailModal(qData.user);
+                } else {
+                  alert('Không thể tải hồ sơ chi tiết của nhân viên vừa nhận diện.');
+                }
+              }
+            } else {
+              alert(resData.message || 'Không tìm thấy khuôn mặt trùng khớp trong cơ sở dữ liệu.');
+            }
+          } else {
+            alert(`Lỗi nhận diện: ${resData.detail || resData.error_message || 'Ảnh không hợp lệ.'}`);
+          }
+        } catch (err) {
+          console.error('Face Search Error:', err);
+          alert('Đã xảy ra lỗi hệ thống khi kết nối tới máy chủ nhận diện.');
+        } finally {
+          btnExecuteFaceSearch.disabled = false;
+          btnExecuteFaceSearch.innerHTML = '<i class="fa-solid fa-bolt"></i> Bắt đầu nhận diện';
+        }
+      }, 'image/jpeg', 0.95);
+    });
+  }
 
   // Utility Formatters
   function formatDateToYYYYMMDD(dateObj) {

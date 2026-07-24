@@ -132,7 +132,11 @@ def process_ekyc_check_in(
         is_verified = False
         for frame in frames:
             try:
-                if verify_user_face(db=db, model=model, user_id=target_user_id, image_bytes=frame):
+                timeStart = datetime.datetime.now()
+                verified = verify_user_face(db=db, model=model, user_id=target_user_id, image_bytes=frame)
+                duration = (datetime.datetime.now() - timeStart).total_seconds()
+                logging.info(f"BENCHMARK: verify_user_face execution time: {duration:.4f} seconds")
+                if verified:
                     is_verified = True
                     break
             except Exception:

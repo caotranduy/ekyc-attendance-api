@@ -100,7 +100,12 @@ app.include_router(graphql_app, prefix="/graphql")
 admin_static_dir = os.path.join(os.path.dirname(__file__), "static", "admin")
 os.makedirs(admin_static_dir, exist_ok=True)
 
+from fastapi.responses import RedirectResponse
+
 @app.get("/admin", dependencies=[Depends(verify_admin)])
+async def redirect_admin():
+    return RedirectResponse(url="/admin/")
+
 @app.get("/admin/", dependencies=[Depends(verify_admin)])
 @app.get("/admin/index.html", dependencies=[Depends(verify_admin)])
 async def get_admin_index():

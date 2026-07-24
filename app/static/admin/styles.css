@@ -392,11 +392,23 @@ body {
   border-radius: var(--radius-lg);
   padding: 16px 24px;
   display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: stretch;
+  box-shadow: var(--shadow-glow);
+}
+
+.toolbar-row {
+  display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 16px;
-  box-shadow: var(--shadow-glow);
+  gap: 12px;
+}
+
+.toolbar-row.filter-row {
+  border-top: 1px solid var(--border-color);
+  padding-top: 14px;
 }
 
 .action-group {

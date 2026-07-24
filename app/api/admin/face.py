@@ -12,6 +12,9 @@ from app.services.face_service import (
 )
 from app.models.user import User
 from pydantic import BaseModel, Field
+from app.core.exceptions import AppException
+from app.core.error_codes import ErrorCode
+
 
 router = APIRouter(
     prefix="/admin/face",
@@ -64,8 +67,17 @@ async def admin_register_face_route(
 
     try:
         image_bytes = await file.read()
-        registered_face = register_user_face(db=db, model=model, user_id=user_id, image_bytes=image_bytes)
-        
+       
+        is_matched, matched_user_id = recognize_user_face(db=db, model=model, image_bytes=image_bytes)
+        if not is_matched:
+            registered_face = register_user_face(db=db, model=model, user_id=user_id, image_bytes=image_bytes)
+        else:
+            raise AppException(
+                status_code=409,
+                error_code=ErrorCode.FACE_ALREADY_REGISTERED,
+                error_message=f"This face is already registered for user with ID '{matched_user_id}'"
+            )
+
         user = db.query(User).filter(User.id == user_id).first()
         return AdminRegisterFaceResponse(
             user_id=user_id,
@@ -74,6 +86,8 @@ async def admin_register_face_route(
             employee_code=user.employee_code if user else None,
             message=f"Successfully registered face for employee '{user.name if user else user_id}'."
         )
+    except AppException as ae:
+        raise ae
     except KeyError as ke:
         raise HTTPException(status_code=404, detail=str(ke).strip("'"))
     except ValueError as ve:
