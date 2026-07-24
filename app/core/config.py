@@ -41,7 +41,7 @@ class Settings(BaseSettings):
             self.DATABASE_URL = "sqlite:///" + os.path.join(self.DATA_DIR, "database.db")
         return self
 
-    FACE_RECOGNITION_TOLERANCE : float = 0.6
+    FACE_RECOGNITION_TOLERANCE : float = 0.4 #TODO: Figure out sweetest threshold
     LIVENESS_THRESHOLD : float = 0.85
 
 

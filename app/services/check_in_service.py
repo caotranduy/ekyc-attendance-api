@@ -132,10 +132,7 @@ def process_ekyc_check_in(
         is_verified = False
         for frame in frames:
             try:
-                timeStart = datetime.datetime.now()
                 verified = verify_user_face(db=db, model=model, user_id=target_user_id, image_bytes=frame)
-                duration = (datetime.datetime.now() - timeStart).total_seconds()
-                logging.info(f"BENCHMARK: verify_user_face execution time: {duration:.4f} seconds")
                 if verified:
                     is_verified = True
                     break
@@ -146,7 +143,7 @@ def process_ekyc_check_in(
             db_user = db.query(User).filter(User.id == target_user_id).first()
             raise AppException(
                 status_code=400,
-                error_code=ErrorCode.INVALID_REQUEST,
+                error_code=ErrorCode.WRONG_FACE,
                 error_message=f"eKYC Verification Failed: Uploaded face does not match registered employee '{db_user.name if db_user else target_user_id}'."
             )
 

@@ -35,7 +35,7 @@ def get_anti_spoof_service() -> AntiSpoofService:
 )
 async def check_in_ekyc_mobile(
     request: Request,
-    user_id: Optional[uuid.UUID] = Form(None, description="Optional User ID."),
+    user_id: Optional[str] = Form(None, description="Optional User ID (UUID string)."),
     files: List[UploadFile] = File(..., description="Exactly 3 JPEG frames from Active Liveness."),
     x_timestamp: Optional[str] = Header(None, alias="X-Timestamp", description="ISO 8601 UTC timestamp."),
     x_nonce: Optional[str] = Header(None, alias="X-Nonce", description="Random unique nonce string."),
@@ -44,8 +44,15 @@ async def check_in_ekyc_mobile(
     anti_spoof_service: AntiSpoofService = Depends(get_anti_spoof_service),
     db: Session = Depends(get_db)
 ):
+    parsed_user_id = None
+    if user_id and user_id.strip() and user_id.strip().lower() != "null":
+        try:
+            parsed_user_id = uuid.UUID(user_id.strip())
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid user_id format. Must be a valid UUID.")
+
     jwt_user_id = get_optional_user_id(request, db=db)
-    target_user_id = jwt_user_id or user_id
+    target_user_id = jwt_user_id or parsed_user_id
 
     # 1. Security Check: HMAC Signature Validation
     if x_signature:
