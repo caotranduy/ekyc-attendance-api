@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const standardActionBar = document.getElementById('standardActionBar');
   const bulkActionBar = document.getElementById('bulkActionBar');
   const btnAddEmployee = document.getElementById('btnAddEmployee');
-  const btnEditEmployee = document.getElementById('btnEditEmployee');
+  const btnEditFromDetail = document.getElementById('btnEditFromDetail');
   const btnBulkDeleteMode = document.getElementById('btnBulkDeleteMode');
   const btnCancelBulk = document.getElementById('btnCancelBulk');
   const btnConfirmBulkDelete = document.getElementById('btnConfirmBulkDelete');
@@ -589,7 +589,14 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${emp.gender || 'Chưa nhập'}</td>
         <td>${emp.dob ? formatDateDisplay(emp.dob) : 'Chưa nhập'}</td>
         <td>${emp.createdAt ? formatDateDisplay(emp.createdAt.split('T')[0]) : 'Chưa nhập'}</td>
-        <td><span style="color: var(--accent-cyan);">${emp.username || emp.employeeCode}</span></td>
+        <td>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+            <span style="color: var(--accent-cyan);">${emp.username || emp.employeeCode}</span>
+            <button class="btn-icon-sm btn-edit-row" data-id="${emp.id}" onclick="event.stopPropagation()" title="Chỉnh sửa thông tin">
+              <i class="fa-solid fa-user-pen" style="color: var(--accent-amber);"></i>
+            </button>
+          </div>
+        </td>
       `;
 
       tr.addEventListener('click', () => {
@@ -607,6 +614,16 @@ document.addEventListener('DOMContentLoaded', () => {
       cb.addEventListener('change', (e) => {
         const id = e.target.getAttribute('data-id');
         toggleSelectUser(id, e.target.checked);
+      });
+    });
+
+    document.querySelectorAll('.btn-edit-row').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = btn.getAttribute('data-id');
+        const emp = currentEmployeesList.find(u => u.id === id);
+        if (emp) {
+          openEditEmployeeModal(emp);
+        }
       });
     });
   }
@@ -724,9 +741,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Modal 2: Edit Employee via GraphQL Mutation
-  btnEditEmployee.addEventListener('click', () => {
-    if (currentEmployeesList.length === 0) return;
-    openEditEmployeeModal(currentEmployeesList[0]);
+  btnEditFromDetail.addEventListener('click', () => {
+    if (!activeDetailUser) return;
+    closeModal(userDetailModal);
+    openEditEmployeeModal(activeDetailUser);
   });
 
   function openEditEmployeeModal(emp) {

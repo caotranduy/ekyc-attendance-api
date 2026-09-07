@@ -30,4 +30,10 @@ def recognize_user_face(
         # If vector is in FAISS but deleted from DB, return no match
         return False, None
 
+    from app.models.user import User
+    db_user = db.query(User).filter(User.id == db_face.user_id).first()
+    if not db_user:
+        # If corresponding employee/user does not exist in User table (orphan), return no match
+        return False, None
+
     return True, db_face.user_id

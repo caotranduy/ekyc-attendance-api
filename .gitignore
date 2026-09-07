@@ -3,3 +3,6 @@ dlib/
 *.pyc
 .env
 *.jpg
+*.db
+*.index
+*.pkl

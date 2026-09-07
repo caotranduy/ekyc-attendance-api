@@ -18,9 +18,7 @@ def verify_hmac_signature(timestamp_str: str, nonce: str, user_id_str: str, sign
     if not signature:
         return False
 
-    secret_key = getattr(config, 'SECRET_KEY', 'aiface_super_secret_ekyc_key_2026')
-    if not secret_key:
-        secret_key = 'aiface_super_secret_ekyc_key_2026'
+    secret_key = getattr(config, 'SECRET_KEY')
 
     string_to_sign = f"{timestamp_str}{nonce}{user_id_str}"
     expected_hmac = hmac.new(
@@ -62,6 +60,9 @@ def validate_client_timestamp(timestamp_str: str, max_drift_seconds: int = MAX_D
                     error_code=ErrorCode.INVALID_REQUEST,
                     error_message=f"Invalid X-Timestamp ISO format: '{timestamp_str}'."
                 )
+
+    if client_dt.tzinfo is not None:
+        client_dt = client_dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
 
     server_now = datetime.datetime.utcnow()
     drift = abs((server_now - client_dt).total_seconds())

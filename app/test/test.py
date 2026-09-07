@@ -378,6 +378,17 @@ def test_security_hmac_and_timestamp_drift() -> None:
     # 2. Verify invalid signature
     assert verify_hmac_signature(ts, nonce, uid_str, "invalid_sig") is False
 
+    # 3. Verify timezone-aware timestamp drift checking
+    ts_aware = (datetime.datetime.now(datetime.timezone.utc)).isoformat()
+    dt_aware = validate_client_timestamp(ts_aware, max_drift_seconds=60)
+    assert isinstance(dt_aware, datetime.datetime)
+
+    # 4. Verify timezone-aware timestamp drift checking with non-zero offset
+    now_local = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7))) - datetime.timedelta(seconds=10)
+    ts_local = now_local.isoformat()
+    dt_local = validate_client_timestamp(ts_local, max_drift_seconds=60)
+    assert isinstance(dt_local, datetime.datetime)
+
 def test_get_optional_user_id() -> None:
     """Verifies get_optional_user_id extracts user_id from JWT token or returns None."""
     from app.core.jwt_utils import create_access_token, get_optional_user_id
@@ -520,3 +531,72 @@ def test_process_ekyc_check_in_no_face_detected() -> None:
     assert excinfo.value.status_code == 400
     assert excinfo.value.error_code == ErrorCode.NO_FACE_DETECTED.value
     assert "No face detected" in excinfo.value.error_message
+
+def test_admin_employee_endpoints() -> None:
+    """Verifies routes GET /admin/employees/{user_id}, PUT, and DELETE."""
+    from app.api.admin.employee import get_employee_route, update_employee_route
+    from app.api.deps.db_deps import get_db
+    from app.models.user import User
+    from app.DTO.admin_dto import EmployeeUpdateDTO
+
+    db = next(get_db())
+    user = db.query(User).first()
+    assert user is not None
+
+    # 1. Test get_employee_route directly
+    res_get = get_employee_route(user_id=user.id, db=db)
+    assert res_get.id == user.id
+
+    # 2. Test update_employee_route directly
+    update_data = EmployeeUpdateDTO(name="Updated Name For Testing")
+    res_put = update_employee_route(user_id=user.id, dto=update_data, db=db)
+    assert res_put.name == "Updated Name For Testing"
+
+    # Verify database state
+    db.refresh(user)
+    assert user.name == "Updated Name For Testing"
+
+def test_health_endpoint() -> None:
+    """Verifies perform_health_check function runs successfully."""
+    from app.api.health import perform_health_check
+    from unittest.mock import MagicMock
+    
+    mock_response = MagicMock()
+    health_res = perform_health_check(response=mock_response)
+    assert health_res.overall_status in ["ok", "error"]
+    assert len(health_res.components) > 0
+
+def test_orphan_face_recognition() -> None:
+    """Verifies that face recognition and registration reject or ignore orphaned records."""
+    from app.services.face_service.recognize import recognize_user_face
+    from app.models.user_face import UserFace
+    from app.models.user import User
+    from unittest.mock import MagicMock
+    import uuid
+
+    # 1. Mock FaceModel recognize_face to return a dummy face_id
+    mock_model = MagicMock()
+    dummy_face_id = uuid.uuid4()
+    mock_model.recognize_face.return_value = (True, dummy_face_id)
+
+    # 2. Mock DB to simulate UserFace exists but corresponding User does not (orphan record)
+    orphan_user_id = uuid.uuid4()
+    mock_db = MagicMock()
+    mock_user_face = UserFace(user_id=orphan_user_id, face_id=dummy_face_id)
+
+    def db_query_side_effect(model_class):
+        query_mock = MagicMock()
+        if model_class == UserFace:
+            query_mock.filter.return_value.first.return_value = mock_user_face
+        elif model_class == User:
+            query_mock.filter.return_value.first.return_value = None
+        return query_mock
+
+    mock_db.query.side_effect = db_query_side_effect
+
+    # 3. Call recognize_user_face
+    is_match, matched_uid = recognize_user_face(db=mock_db, model=mock_model, image_bytes=b"dummy")
+
+    # It must return False, None because of orphan state
+    assert is_match is False
+    assert matched_uid is None

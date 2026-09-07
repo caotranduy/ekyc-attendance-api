@@ -36,12 +36,11 @@ def register_user_face(
     if db_user.face is not None:
         raise ValueError("User already has a registered face.")
 
-    # 3. Check if physical face is already registered in FAISS/DB
-    is_recognized, matched_face_id = model.recognize_face(image_bytes=image_bytes)
-    if is_recognized and matched_face_id is not None:
-        db_face = db.query(UserFace).filter(UserFace.face_id == matched_face_id).first()
-        if db_face:
-            raise ValueError("This face is already registered to another user.")
+    # 3. Check if physical face is already registered in FAISS/DB for a valid existing user
+    from app.services.face_service.recognize import recognize_user_face
+    is_recognized, matched_user_id = recognize_user_face(db=db, model=model, image_bytes=image_bytes)
+    if is_recognized and matched_user_id is not None:
+        raise ValueError("This face is already registered to another active user.")
 
     # 4. Extract features & add to FAISS
     registered_face = model.register_new_face(image_bytes=image_bytes)

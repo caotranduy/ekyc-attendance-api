@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from typing import List, Dict
 
 from app.services.face_model import face_model_instance
-from app.core import config
+from app.core.config import config
 
 router = APIRouter()
 

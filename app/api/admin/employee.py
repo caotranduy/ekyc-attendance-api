@@ -4,6 +4,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from app.api.deps.db_deps import get_db
+from app.models.user import User
 from app.DTO.admin_dto import (
     EmployeeCreateDTO,
     EmployeeUpdateDTO,

@@ -128,6 +128,8 @@ body {
 
 /* Controls Bar for Calendar */
 .calendar-controls-bar {
+  position: relative;
+  z-index: 100;
   background: var(--bg-card);
   backdrop-filter: blur(12px);
   border: 1px solid var(--border-color);
@@ -386,6 +388,8 @@ body {
 
 /* TAB 2: EMPLOYEE MANAGEMENT STYLING */
 .employee-toolbar {
+  position: relative;
+  z-index: 100;
   background: var(--bg-card);
   backdrop-filter: blur(12px);
   border: 1px solid var(--border-color);
@@ -538,6 +542,20 @@ body {
 
 .btn-icon-sm:hover {
   color: var(--accent-cyan);
+}
+
+.btn-edit-row {
+  opacity: 0.7;
+  transition: all 0.2s ease;
+}
+
+.btn-edit-row:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.btn-edit-row i {
+  color: var(--accent-amber);
 }
 
 /* Employee Data Table Card */

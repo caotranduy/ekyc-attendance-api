@@ -74,6 +74,7 @@ class FaceModel:
         if hasattr(config, 'MAPPING_DB_PATH') and os.path.exists(config.MAPPING_DB_PATH):
             with open(config.MAPPING_DB_PATH, 'rb') as f:
                 self.uuid_mapping = pickle.load(f)
+            self.uuid_to_index = {fid: i for i, fid in enumerate(self.uuid_mapping)}
 
     def _save_index_and_mapping(self) -> None:
         """Persists the FAISS index and UUID mapping to physical storage."""

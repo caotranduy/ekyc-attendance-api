@@ -41,7 +41,7 @@ class Settings(BaseSettings):
             self.DATABASE_URL = "sqlite:///" + os.path.join(self.DATA_DIR, "database.db")
         return self
 
-    FACE_RECOGNITION_TOLERANCE : float = 0.4 #TODO: Figure out sweetest threshold
+    FACE_RECOGNITION_TOLERANCE : float = 0.45 #TODO: Figure out sweetest threshold
     LIVENESS_THRESHOLD : float = 0.85
 
 
@@ -51,12 +51,12 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30  # 30 days
 
     ADMIN_USERNAME: str = "admin"
-    ADMIN_PASSWORD: str = "admin_password_2026"
+    ADMIN_PASSWORD: str = "admin"
 
     model_config = SettingsConfigDict(
-            env_file=".env",              # Chỉ định file cần đọc
-            env_file_encoding="utf-8",    # Định dạng mã hóa tệp
-            extra="ignore"                # Bỏ qua nếu trong .env có các biến thừa không khai báo ở Class này
+            env_file=".env",             
+            env_file_encoding="utf-8",    
+            extra="ignore"                
         )
 
 config = Settings()
